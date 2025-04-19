@@ -1,0 +1,24 @@
+graph TD
+  %% Outside the VPC
+  ReactApp
+  ReactApp -->|HTTPS| API_GW
+
+  %% VPC
+  subgraph VPC
+    subgraph Public
+      ALB
+      EC2
+      NATGW
+    end
+    subgraph Private
+      RDS
+    end
+  end
+
+  API_GW --> ALB
+  ALB --> EC2
+  EC2 --> RDS
+  EC2 -->|PUT/GET| SnapBucket
+  
+  SnapBucket -->|ObjectCreated| LogLambda
+  LogLambda --> CloudWatch
