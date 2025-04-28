@@ -1,3 +1,11 @@
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+locals {
+  bucket_name = "photosnap-raw-snaps-${random_id.bucket_suffix.hex}"
+}
+
 provider "aws" {
   region = var.aws_region
 }
@@ -17,6 +25,20 @@ module "nat" {
   private_subnet_ids = module.vpc.private_subnet_ids
 }
 
+module "db" {
+  source           = "./modules/db"
+  vpc_id           = module.vpc.vpc_id
+  private_subnets  = module.vpc.private_subnet_ids
+  db_username      = var.db_username
+  db_password      = var.db_password
+  vpc_cidr         = var.vpc_cidr
+}
+
+module "s3" {
+  source      = "./modules/s3"
+  bucket_name = local.bucket_name
+}
+
 output "vpc_id" {
   description = "The VPC ID"
   value       = module.vpc.vpc_id
@@ -32,3 +54,7 @@ output "private_subnet_ids" {
   value       = module.vpc.private_subnet_ids
 }
 
+output "bucket_name" {
+  description = "The name of the raw-snaps S3 bucket"
+  value       = local.bucket_name
+}

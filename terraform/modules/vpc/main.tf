@@ -5,6 +5,10 @@ resource "aws_vpc" "this" {
   tags = { Name = "photosnap-vpc" }
 }
 
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
 resource "aws_subnet" "public" {
   for_each            = toset(var.public_subnet_cidrs)
   vpc_id              = aws_vpc.this.id
@@ -14,11 +18,21 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each            = toset(var.private_subnet_cidrs)
-  vpc_id              = aws_vpc.this.id
-  cidr_block          = each.value
+  for_each               = toset(var.private_subnet_cidrs)
+  vpc_id                 = aws_vpc.this.id
+  cidr_block             = each.value
   map_public_ip_on_launch = false
-  tags = { Name = "private-${each.value}" }
+
+  availability_zone = data.aws_availability_zones.available.names[
+    index(var.private_subnet_cidrs, each.value)
+  ]
+
+  tags = {
+    Name = "private-${each.value}"
+    AZ   = data.aws_availability_zones.available.names[
+             index(var.private_subnet_cidrs, each.value)
+           ]
+  }
 }
 
 resource "aws_internet_gateway" "igw" {

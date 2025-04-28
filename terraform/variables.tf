@@ -17,13 +17,25 @@ variable "public_subnet_cidrs" {
 }
 
 variable "private_subnet_cidrs" {
-  description = "CIDRs for private subnets"
+  description = "CIDRs for private subnets (requires ≥2 AZs for RDS)"
   type        = list(string)
-  default     = ["10.0.2.0/24"]
+  default     = ["10.0.2.0/24", "10.0.3.0/24"]
 }
 
 variable "enable_nat" {
   description = "Whether to create a NAT instance"
   type        = bool
   default     = false
+}
+
+variable "db_username" {
+  description = "PostgreSQL master username"
+  type        = string
+  default     = "photosnap_user"
+}
+
+variable "db_password" {
+  description = "PostgreSQL master password"
+  type        = string
+  sensitive   = true
 }
