@@ -45,8 +45,9 @@ output "vpc_id" {
 }
 
 output "public_subnet_ids" {
-  description = "List of public subnet IDs"
-  value       = module.vpc.public_subnet_ids
+  description = "Comma-separated public subnet IDs for CFN"
+  value       = join(",", module.vpc.public_subnet_ids)
+  sensitive   = false
 }
 
 output "private_subnet_ids" {
@@ -57,4 +58,9 @@ output "private_subnet_ids" {
 output "bucket_name" {
   description = "The name of the raw-snaps S3 bucket"
   value       = local.bucket_name
+}
+
+output "db_endpoint" {
+  description = "RDS endpoint for Flask"
+  value       = module.db.db_endpoint
 }

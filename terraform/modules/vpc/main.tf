@@ -10,11 +10,22 @@ data "aws_availability_zones" "available" {
 }
 
 resource "aws_subnet" "public" {
-  for_each            = toset(var.public_subnet_cidrs)
-  vpc_id              = aws_vpc.this.id
-  cidr_block          = each.value
+  for_each               = toset(var.public_subnet_cidrs)
+  vpc_id                 = aws_vpc.this.id
+  cidr_block             = each.value
   map_public_ip_on_launch = true
-  tags = { Name = "public-${each.value}" }
+
+  # Pick the AZ by index: 0→AZ‑1, 1→AZ‑2
+  availability_zone = data.aws_availability_zones.available.names[
+    index(var.public_subnet_cidrs, each.value)
+  ]
+
+  tags = {
+    Name = "public-${each.value}"
+    AZ   = data.aws_availability_zones.available.names[
+             index(var.public_subnet_cidrs, each.value)
+          ]
+  }
 }
 
 resource "aws_subnet" "private" {
