@@ -51,6 +51,8 @@ Resources:
         InstanceType: !Ref InstanceType
         IamInstanceProfile: { Name: !Ref InstanceProfile }
         KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !Ref AsgSecurityGroup
         UserData: 
           Fn::Base64: !Sub |
             #!/bin/bash
