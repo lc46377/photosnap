@@ -64,8 +64,8 @@ Resources:
             cd /home/ec2-user
 
             # Clone your GitHub repo
-            git clone https://github.com/lc46377/photosnap-mvp.git
-            cd photosnap-mvp/backend
+            git clone https://github.com/lc46377/photosnap.git
+            cd photosnap/backend
 
             # Install Python dependencies
             pip3 install --upgrade pip
