@@ -1,15 +1,20 @@
+terraform apply \                                             
+  -var="db_password=password" \
+  -var="enable_nat=false" \
+  -auto-approve
+
 export VPC_ID=$(terraform -chdir=terraform output -raw vpc_id)
 export PUB_SUBNETS=$(terraform -chdir=terraform output -raw public_subnet_ids)
 export BUCKET=$(terraform -chdir=terraform output -raw bucket_name)
 export DB_ENDPT=$(terraform -chdir=terraform output -raw db_endpoint)
 
- aws cloudformation deploy \                       
+aws cloudformation deploy \                            
   --template-file cfn/ec2-asg.yml \
   --stack-name photosnap-ec2-asg \
   --parameter-overrides \
     VpcId=$VPC_ID \
     PublicSubnetIds="$PUB_SUBNETS" \
-    AmiId=ami-0e449927258d45bc4 \
+    AmiId=ami-085386e29e44dacd7 \
     KeyName=MyKeyPair \
     SnapsBucket="$BUCKET" \
     DbEndpoint="$DB_ENDPT" \

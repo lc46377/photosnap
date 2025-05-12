@@ -60,7 +60,7 @@ Resources:
             yum update -y
 
             # Install git, python3, pip via yum
-            yum install -y git python3 python3-pip
+            yum install -y git python3 python3-pip postgresql
 
             # Switch to ec2‑user's home
             cd /home/ec2-user
@@ -72,6 +72,13 @@ Resources:
             # Install Python dependencies
             pip3 install --upgrade pip
             pip3 install -r requirements.txt
+
+            psql "host=${DbEndpoint} port=5432 user=${DbUsername} password=${DbPassword} dbname=postgres sslmode=require" <<EOSQL
+            CREATE TABLE IF NOT EXISTS snaps (
+              id      UUID PRIMARY KEY,
+              s3_key  TEXT NOT NULL
+            );
+            EOSQL
 
             # Export env vars for Flask
             export SNAPS_BUCKET=${SnapsBucket}
