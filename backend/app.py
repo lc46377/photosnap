@@ -16,13 +16,13 @@ from sqlalchemy import create_engine, text
 
 app = Flask(__name__)
 # Enable CORS for our API endpoints
-CORS(app, resources={
-    r"/upload": {"origins": "*"},
-    r"/view/*": {"origins": "*"},
-    r"/signup": {"origins": "*"},
-    r"/login": {"origins": "*"},
-    r"/friends/*": {"origins": "*"}
-})
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True,
+    allow_headers=["*"],
+    methods=["GET","POST","PUT","DELETE","OPTIONS"]
+)
 
 # JWT config (keep this secret in prod!)
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET", "super‑secret‑key")

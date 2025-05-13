@@ -23,3 +23,34 @@ aws cloudformation deploy \
     AwsRegion=us-east-1 \
     InstanceType=t2.micro \
   --capabilities CAPABILITY_NAMED_IAM
+
+
+export ALB_URL="http://$(aws cloudformation describe-stacks \
+  --stack-name photosnap-ec2-asg \
+  --query "Stacks[0].Outputs[?OutputKey=='LoadBalancerDNS'].OutputValue" \
+  --output text)"
+echo "ALB → $ALB_URL"
+
+curl -v -X POST $ALB_URL/upload \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"smoke-test.jpg"}'
+
+RESP=$(curl -s -X POST $ALB_URL/upload \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"smoke-test.jpg"}')
+PUT_URL=$(jq -r .put_url <<<"$RESP")
+curl --upload-file ./smoke-test.jpg "$PUT_URL" && echo "✅ uploaded"
+
+
+GET_URL=$(jq -r .get_url <<<"$RESP")
+curl -s "$GET_URL" -o downloaded.jpg && echo "✅ downloaded"
+
+
+RAW_BUCKET=$(terraform -chdir=terraform output -raw bucket_name) 
+aws s3 cp lambda/s3_logger.zip s3://$RAW_BUCKET/lambda/s3_logger.zip
+#logging
+aws cloudformation deploy \
+  --template-file cfn/s3-logger.yml \
+  --stack-name photosnap-s3-logger \
+  --parameter-overrides RawSnapsBucket=$RAW_BUCKET \
+  --capabilities CAPABILITY_NAMED_IAM

@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "S3 → Lambda logging pipeline for PhotoSnap raw snaps"
+
+Parameters:
+  RawSnapsBucket:
+    Type: String
+    Description: Name of the raw‑snaps S3 bucket
+
+Resources:
+  S3LoggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3ReadPolicy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${RawSnapsBucket}/*"
+
+  S3LoggerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: photoSnapS3Logger
+      Runtime: python3.9
+      Handler: s3_logger.lambda_handler
+      Role: !GetAtt S3LoggerRole.Arn
+      Code:
+        S3Bucket: !Ref RawSnapsBucket
+        S3Key: lambda/s3_logger.zip   
+      Timeout: 10
+
+  PermissionForS3Invoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref S3LoggerFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${RawSnapsBucket}"
+
+Outputs:
+  LoggerFunctionName:
+    Description: "Name of the S3 Logger Lambda"
+    Value: !Ref S3LoggerFunction
