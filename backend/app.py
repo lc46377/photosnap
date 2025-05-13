@@ -3,8 +3,10 @@ import uuid
 import boto3
 from flask import Flask, request, jsonify
 from sqlalchemy import create_engine, text
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Config from environment
 S3_BUCKET = os.environ["SNAPS_BUCKET"]
