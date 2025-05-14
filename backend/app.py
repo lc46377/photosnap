@@ -170,8 +170,9 @@ def upload():
     # Insert into snaps table
     with engine.begin() as conn:
         conn.execute(text(
-            "INSERT INTO snaps (id, s3_key) VALUES (:id, :key)"
-        ), {"id": snap_id, "key": key})
+            "INSERT INTO snaps (id, s3_key, owner) "
+            "VALUES (:id, :key, :owner)"
+        ), {"id": snap_id, "key": key, "owner": me})
 
         # Grant each recipient access
         for uid in recipients:
