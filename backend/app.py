@@ -58,7 +58,7 @@ def signup():
     try:
         with engine.begin() as conn:
             conn.execute(text(
-                "INSERT INTO users (username,password) VALUES (:u,:p)"
+                "INSERT INTO users (username,password_hash) VALUES (:u,:p)"
             ), {"u": username, "p": pw_hash})
     except Exception as e:
         return {"msg": f"error: {str(e)}"}, 400
@@ -75,7 +75,7 @@ def login():
         return {"msg": "username & password required"}, 400
 
     row = engine.connect().execute(text(
-        "SELECT id,password FROM users WHERE username = :u"
+        "SELECT id,password_hash FROM users WHERE username = :u"
     ), {"u": username}).fetchone()
 
     if not row or not check_password_hash(row["password"], password):
