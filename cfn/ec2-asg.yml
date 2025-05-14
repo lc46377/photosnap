@@ -56,39 +56,72 @@ Resources:
         UserData: 
           Fn::Base64: !Sub |
             #!/bin/bash
-            # Ensure we're on Amazon Linux 2
-            yum update -y
+            set -e
 
-            # Install git, python3, pip via yum
-            yum install -y git python3 python3-pip postgresql
+            # 1) Enable Python 3.8 & PostgreSQL 14 client
+            amazon-linux-extras enable python3.8 postgresql14
+            yum clean metadata -y
 
-            # Switch to ec2‑user's home
+            # 2) Install system packages
+            yum install -y git python3.8 postgresql
+
+            # 3) Create & activate a virtualenv
             cd /home/ec2-user
+            python3.8 -m venv venv
+            source venv/bin/activate
 
-            # Clone your GitHub repo
+            # 4) Clone your backend & install Python deps
             git clone https://github.com/lc46377/photosnap.git
             cd photosnap/backend
 
-            # Install Python dependencies
-            pip3 install --upgrade pip
-            pip3 install -r requirements.txt
+            # Upgrade pip, then install exactly your requirements
+            pip install --upgrade pip
+            pip install -r requirements.txt
 
+            # 5) Bootstrap your database schema (snaps + auth + friendships)
             psql "host=${DbEndpoint} port=5432 user=${DbUsername} password=${DbPassword} dbname=postgres sslmode=require" <<EOSQL
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            CREATE TABLE IF NOT EXISTS users (
+              id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              username      TEXT UNIQUE NOT NULL,
+              password_hash TEXT NOT NULL,
+              created_at    TIMESTAMP WITH TIME ZONE DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS friend_requests (
+              id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              from_user   UUID REFERENCES users(id) ON DELETE CASCADE,
+              to_user     UUID REFERENCES users(id) ON DELETE CASCADE,
+              status      TEXT     NOT NULL,  -- e.g. "pending","accepted","rejected"
+              created_at  TIMESTAMP WITH TIME ZONE DEFAULT now()
+            );
+
+            CREATE TABLE IF NOT EXISTS friendships (
+              user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
+              friend_id  UUID REFERENCES users(id) ON DELETE CASCADE,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+              PRIMARY KEY(user_id, friend_id)
+            );
+
             CREATE TABLE IF NOT EXISTS snaps (
-              id      UUID PRIMARY KEY,
-              s3_key  TEXT NOT NULL
+              id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              s3_key   TEXT NOT NULL,
+              owner    UUID REFERENCES users(id) ON DELETE CASCADE,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
             );
             EOSQL
 
-            # Export env vars for Flask
+            # 6) Export runtime env‑vars
             export SNAPS_BUCKET=${SnapsBucket}
             export DB_ENDPOINT=${DbEndpoint}
             export DB_USERNAME=${DbUsername}
             export DB_PASSWORD=${DbPassword}
             export AWS_REGION=${AwsRegion}
 
-            # Launch Gunicorn
-            nohup gunicorn app:app --bind 0.0.0.0:5000 &
+            # 7) Launch your Flask app under Gunicorn
+            nohup /home/ec2-user/venv/bin/gunicorn app:app --bind 0.0.0.0:5000 &
+
 
   AsgSecurityGroup:
     Type: AWS::EC2::SecurityGroup
