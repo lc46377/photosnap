@@ -54,7 +54,7 @@ def signup():
     if not username or not password:
         return {"msg": "username & password required"}, 400
 
-    pw_hash = generate_password_hash(password)
+    pw_hash = generate_password_hash(password, method="pbkdf2:sha256")
     try:
         with engine.begin() as conn:
             conn.execute(text(
