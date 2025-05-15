@@ -54,3 +54,6 @@ aws cloudformation deploy \
   --stack-name photosnap-s3-logger \
   --parameter-overrides RawSnapsBucket=$RAW_BUCKET \
   --capabilities CAPABILITY_NAMED_IAM
+
+
+sudo tail -n 200 /var/log/cloud-init-output.log
