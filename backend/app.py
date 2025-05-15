@@ -61,9 +61,10 @@ def signup():
     pw_hash = generate_password_hash(password, method="pbkdf2:sha256")
     try:
         with engine.begin() as conn:
-            conn.execute(text(
-                "INSERT INTO users (username, password_hash) VALUES (:u, :p)"
-            ), {"u": username, "p": pw_hash})
+            conn.execute(
+                text("INSERT INTO users (username, password_hash) VALUES (:u, :p)"),
+                {"u": username, "p": pw_hash}
+            )
     except Exception as e:
         return {"msg": f"error: {str(e)}"}, 400
 
@@ -80,9 +81,12 @@ def login():
     if not username or not password:
         return {"msg": "username & password required"}, 400
 
-    row = engine.connect().execute(text(
-        "SELECT id, password_hash FROM users WHERE username = :u"
-    ), {"u": username}).fetchone()
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("SELECT id, password_hash FROM users WHERE username = :u"),
+            {"u": username}
+        )
+        row = result.mappings().first()
 
     if not row or not check_password_hash(row["password_hash"], password):
         return {"msg": "bad credentials"}, 401
