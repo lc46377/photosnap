@@ -98,6 +98,20 @@ def login():
 # Friend Request Endpoints
 # —————————————————————————————————————————————
 
+@app.route("/friends/list", methods=["OPTIONS", "GET"])
+@jwt_required()
+def list_friends():
+    if request.method == "OPTIONS":
+        return "", 200
+
+    me = get_jwt_identity()
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT id, username FROM users WHERE id != :me"
+        ), {"me": me}).fetchall()
+
+    return jsonify([{"id": str(r["id"]), "username": r["username"]} for r in rows])
+
 @app.route("/friends/request", methods=["OPTIONS", "POST"])
 @jwt_required()
 def send_request():
