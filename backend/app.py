@@ -74,11 +74,13 @@ def login():
     if not username or not password:
         return {"msg": "username & password required"}, 400
 
+    # SELECT the password_hash column
     row = engine.connect().execute(text(
-        "SELECT id,password_hash FROM users WHERE username = :u"
+        "SELECT id, password_hash FROM users WHERE username = :u"
     ), {"u": username}).fetchone()
 
-    if not row or not check_password_hash(row["password"], password):
+    # If user not found or wrong pw
+    if not row or not check_password_hash(row["password_hash"], password):
         return {"msg": "bad credentials"}, 401
 
     access_token = create_access_token(identity=str(row["id"]))
