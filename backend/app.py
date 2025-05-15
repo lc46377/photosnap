@@ -198,8 +198,14 @@ def upload():
     key     = f"raw/{snap_id}-{filename}"
 
     put_url = s3.generate_presigned_url(
-        "put_object", Params={"Bucket": S3_BUCKET, "Key": key}, ExpiresIn=300
-    )
+    "put_object",
+    Params={
+        "Bucket": S3_BUCKET,
+        "Key": key,
+        "ContentType": data["file_type"]  # e.g. "image/png"
+    },
+    ExpiresIn=300
+   )
     get_url = s3.generate_presigned_url(
         "get_object", Params={"Bucket": S3_BUCKET, "Key": key}, ExpiresIn=300
     )
