@@ -110,6 +110,14 @@ Resources:
               owner    UUID REFERENCES users(id) ON DELETE CASCADE,
               created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
             );
+
+            CREATE TABLE IF NOT EXISTS snap_recipients (
+              snap_id    UUID REFERENCES snaps(id) ON DELETE CASCADE,
+              user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
+              viewed     BOOLEAN DEFAULT false,
+              created_at TIMESTAMPTZ DEFAULT now(),
+              PRIMARY KEY(snap_id, user_id)
+            );
             EOSQL
 
             # 6) Export runtime env‑vars

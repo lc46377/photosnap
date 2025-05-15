@@ -249,6 +249,24 @@ def view_snap(snap_id):
 
     return jsonify({"get_url": get_url})
 
+@app.route("/snaps/list", methods=["OPTIONS", "GET"])
+@jwt_required()
+def list_snaps():
+    if request.method == "OPTIONS":
+        return "", 200
+
+    me = get_jwt_identity()
+    sql = text("""
+      SELECT sr.snap_id, u.username
+      FROM snap_recipients AS sr
+      JOIN snaps           AS s  ON sr.snap_id = s.id
+      JOIN users           AS u  ON s.owner    = u.id
+      WHERE sr.user_id = :me
+    """)
+    rows = engine.connect().execute(sql, {"me": me}).fetchall()
+    
+    return jsonify([{"id": str(r[0]), "owner": r[1]} for r in rows])
+
 # —————————————————————————————————————————————
 # Health Check
 # —————————————————————————————————————————————
