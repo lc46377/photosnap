@@ -15,39 +15,43 @@ from sqlalchemy import create_engine, text
 # —————————————————————————————————————————————
 
 app = Flask(__name__)
-# Enable CORS for our API endpoints
-CORS(
-    app,
-    resources={r"/*": {"origins": "*"}},
-    supports_credentials=True,
-    allow_headers=["*"],
-    methods=["GET","POST","PUT","DELETE","OPTIONS"]
-)
 
-# JWT config (keep this secret in prod!)
-app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET", "super‑secret‑key")
+# Global CORS (we'll also inject via after_request)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Inject CORS headers on every response (including errors)
+@app.after_request
+def add_cors_headers(response):
+    response.headers.setdefault("Access-Control-Allow-Origin", "*")
+    response.headers.setdefault("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+    response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type,Authorization")
+    return response
+
+# JWT config
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET", "super-secret-key")
 jwt = JWTManager(app)
 
 # AWS & DB config from environment
 S3_BUCKET = os.environ["SNAPS_BUCKET"]
 DB_ENDPOINT = os.environ["DB_ENDPOINT"]
-DB_USER = os.environ["DB_USERNAME"]
-DB_PASS = os.environ["DB_PASSWORD"]
-DB_NAME = os.environ.get("DB_NAME", "postgres")
-REGION = os.environ.get("AWS_REGION", "us-east-1")
+DB_USER    = os.environ["DB_USERNAME"]
+DB_PASS    = os.environ["DB_PASSWORD"]
+DB_NAME    = os.environ.get("DB_NAME", "postgres")
+REGION     = os.environ.get("AWS_REGION", "us-east-1")
 
-# Boto3 S3 client & SQLAlchemy engine
+# Clients / DB engine
 s3 = boto3.client("s3", region_name=REGION)
-engine = create_engine(
-    f"postgresql://{DB_USER}:{DB_PASS}@{DB_ENDPOINT}:5432/{DB_NAME}")
+engine = create_engine(f"postgresql://{DB_USER}:{DB_PASS}@{DB_ENDPOINT}:5432/{DB_NAME}")
 
 # —————————————————————————————————————————————
 # Authentication Endpoints
 # —————————————————————————————————————————————
 
-
-@app.route("/signup", methods=["POST"])
+@app.route("/signup", methods=["OPTIONS", "POST"])
 def signup():
+    if request.method == "OPTIONS":
+        return "", 200
+
     data = request.get_json() or {}
     username = data.get("username")
     password = data.get("password")
@@ -58,28 +62,28 @@ def signup():
     try:
         with engine.begin() as conn:
             conn.execute(text(
-                "INSERT INTO users (username,password_hash) VALUES (:u,:p)"
+                "INSERT INTO users (username, password_hash) VALUES (:u, :p)"
             ), {"u": username, "p": pw_hash})
     except Exception as e:
         return {"msg": f"error: {str(e)}"}, 400
 
     return {"msg": "user created"}, 201
 
-
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["OPTIONS", "POST"])
 def login():
+    if request.method == "OPTIONS":
+        return "", 200
+
     data = request.get_json() or {}
     username = data.get("username")
     password = data.get("password")
     if not username or not password:
         return {"msg": "username & password required"}, 400
 
-    # SELECT the password_hash column
     row = engine.connect().execute(text(
         "SELECT id, password_hash FROM users WHERE username = :u"
     ), {"u": username}).fetchone()
 
-    # If user not found or wrong pw
     if not row or not check_password_hash(row["password_hash"], password):
         return {"msg": "bad credentials"}, 401
 
@@ -90,10 +94,12 @@ def login():
 # Friend Request Endpoints
 # —————————————————————————————————————————————
 
-
-@app.route("/friends/request", methods=["POST"])
+@app.route("/friends/request", methods=["OPTIONS", "POST"])
 @jwt_required()
 def send_request():
+    if request.method == "OPTIONS":
+        return "", 200
+
     me = get_jwt_identity()
     data = request.get_json() or {}
     to_user = data.get("to_user")
@@ -102,15 +108,17 @@ def send_request():
 
     with engine.begin() as conn:
         conn.execute(text(
-            "INSERT INTO friend_requests (from_user,to_user) VALUES(:f,:t)"
+            "INSERT INTO friend_requests (from_user, to_user) VALUES (:f, :t)"
         ), {"f": me, "t": to_user})
 
     return {"msg": "request sent"}, 201
 
-
-@app.route("/friends/pending", methods=["GET"])
+@app.route("/friends/pending", methods=["OPTIONS", "GET"])
 @jwt_required()
 def list_pending():
+    if request.method == "OPTIONS":
+        return "", 200
+
     me = get_jwt_identity()
     rows = engine.connect().execute(text(
         "SELECT id, from_user FROM friend_requests "
@@ -119,10 +127,12 @@ def list_pending():
 
     return jsonify([{"req_id": str(r["id"]), "from_user": str(r["from_user"])} for r in rows])
 
-
-@app.route("/friends/respond", methods=["POST"])
+@app.route("/friends/respond", methods=["OPTIONS", "POST"])
 @jwt_required()
 def respond_request():
+    if request.method == "OPTIONS":
+        return "", 200
+
     me = get_jwt_identity()
     data = request.get_json() or {}
     req_id = data.get("req_id")
@@ -142,7 +152,6 @@ def respond_request():
 # Snap Upload & View Endpoints
 # —————————————————————————————————————————————
 
-
 @app.route("/upload", methods=["OPTIONS", "POST"])
 @jwt_required()
 def upload():
@@ -151,17 +160,15 @@ def upload():
 
     me = get_jwt_identity()
     data = request.get_json() or {}
-    filename = data.get("filename")
+    filename   = data.get("filename")
     recipients = data.get("recipients", [])
 
     if not filename or not recipients:
         return {"msg": "filename + recipients required"}, 400
 
-    # Create snap record
     snap_id = str(uuid.uuid4())
-    key = f"raw/{snap_id}-{filename}"
+    key     = f"raw/{snap_id}-{filename}"
 
-    # Generate presigned URLs
     put_url = s3.generate_presigned_url(
         "put_object", Params={"Bucket": S3_BUCKET, "Key": key}, ExpiresIn=300
     )
@@ -169,21 +176,17 @@ def upload():
         "get_object", Params={"Bucket": S3_BUCKET, "Key": key}, ExpiresIn=300
     )
 
-    # Insert into snaps table
     with engine.begin() as conn:
         conn.execute(text(
-            "INSERT INTO snaps (id, s3_key, owner) "
-            "VALUES (:id, :key, :owner)"
+            "INSERT INTO snaps (id, s3_key, owner) VALUES (:id, :key, :owner)"
         ), {"id": snap_id, "key": key, "owner": me})
 
-        # Grant each recipient access
         for uid in recipients:
             conn.execute(text(
                 "INSERT INTO snap_recipients (snap_id, user_id) VALUES (:s, :u)"
             ), {"s": snap_id, "u": uid})
 
     return jsonify({"id": snap_id, "put_url": put_url, "get_url": get_url})
-
 
 @app.route("/view/<snap_id>", methods=["OPTIONS", "GET"])
 @jwt_required()
@@ -193,7 +196,6 @@ def view_snap(snap_id):
 
     me = get_jwt_identity()
     with engine.begin() as conn:
-        # Verify recipient and not yet viewed
         row = conn.execute(text(
             "SELECT viewed FROM snap_recipients "
             "WHERE snap_id = :s AND user_id = :me"
@@ -204,19 +206,17 @@ def view_snap(snap_id):
         if row["viewed"]:
             return {"msg": "already viewed"}, 410
 
-        # Mark as viewed
         conn.execute(text(
             "UPDATE snap_recipients SET viewed = true "
             "WHERE snap_id = :s AND user_id = :me"
         ), {"s": snap_id, "me": me})
 
-        # Get the s3 key
         snap = conn.execute(text(
             "SELECT s3_key FROM snaps WHERE id = :s"
         ), {"s": snap_id}).fetchone()
 
         get_url = s3.generate_presigned_url(
-            "get_object", Params = {"Bucket": S3_BUCKET, "Key": snap["s3_key"]}, ExpiresIn = 300
+            "get_object", Params={"Bucket": S3_BUCKET, "Key": snap["s3_key"]}, ExpiresIn=300
         )
 
     return jsonify({"get_url": get_url})
@@ -225,11 +225,13 @@ def view_snap(snap_id):
 # Health Check
 # —————————————————————————————————————————————
 
-@ app.route("/", methods=["GET"])
+@app.route("/", methods=["GET"])
 def health():
     return "OK", 200
 
 # —————————————————————————————————————————————
 
 if __name__ == "__main__":
+    # in dev
     app.run(host="0.0.0.0", port=5000)
+    # in prod, you’ll use: gunicorn app:app --bind 0.0.0.0:5000
