@@ -98,6 +98,25 @@ def login():
 # Friend Request Endpoints
 # —————————————————————————————————————————————
 
+@app.route("/friends/pending", methods=["GET"])
+@jwt_required()
+def list_pending():
+    me = get_jwt_identity()
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(
+                "SELECT id, from_user FROM friend_requests "
+                "WHERE to_user = :me AND status = 'pending'"
+            ),
+            {"me": me}
+        )
+        rows = result.mappings().all()
+
+    return jsonify([
+        {"req_id": str(r["id"]), "from_user": str(r["from_user"])}
+        for r in rows
+    ])
+
 @app.route("/friends/list", methods=["OPTIONS", "GET"])
 @jwt_required()
 def list_friends():
@@ -106,11 +125,16 @@ def list_friends():
 
     me = get_jwt_identity()
     with engine.connect() as conn:
-        rows = conn.execute(text(
-            "SELECT id, username FROM users WHERE id != :me"
-        ), {"me": me}).fetchall()
+        result = conn.execute(
+            text("SELECT id, username FROM users WHERE id != :me"),
+            {"me": me}
+        )
+        rows = result.mappings().all()
 
-    return jsonify([{"id": str(r["id"]), "username": r["username"]} for r in rows])
+    return jsonify([
+        {"id": str(r["id"]), "username": r["username"]}
+        for r in rows
+    ])
 
 @app.route("/friends/request", methods=["OPTIONS", "POST"])
 @jwt_required()
@@ -130,20 +154,6 @@ def send_request():
         ), {"f": me, "t": to_user})
 
     return {"msg": "request sent"}, 201
-
-@app.route("/friends/pending", methods=["OPTIONS", "GET"])
-@jwt_required()
-def list_pending():
-    if request.method == "OPTIONS":
-        return "", 200
-
-    me = get_jwt_identity()
-    rows = engine.connect().execute(text(
-        "SELECT id, from_user FROM friend_requests "
-        "WHERE to_user = :me AND status = 'pending'"
-    ), {"me": me}).fetchall()
-
-    return jsonify([{"req_id": str(r["id"]), "from_user": str(r["from_user"])} for r in rows])
 
 @app.route("/friends/respond", methods=["OPTIONS", "POST"])
 @jwt_required()
@@ -182,7 +192,7 @@ def upload():
     recipients = data.get("recipients", [])
 
     if not filename or not recipients:
-        return {"msg": "filename + recipients required"}, 400
+        return {"msg": "filename  recipients required"}, 400
 
     snap_id = str(uuid.uuid4())
     key     = f"raw/{snap_id}-{filename}"
