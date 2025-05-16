@@ -10,16 +10,10 @@ from flask_jwt_extended import (
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import create_engine, text
 
-# —————————————————————————————————————————————
-# App & Configuration
-# —————————————————————————————————————————————
-
 app = Flask(__name__)
 
-# Global CORS (we'll also inject via after_request)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Inject CORS headers on every response (including errors)
 @app.after_request
 def add_cors_headers(response):
     response.headers.setdefault("Access-Control-Allow-Origin", "*")
@@ -27,11 +21,9 @@ def add_cors_headers(response):
     response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type,Authorization")
     return response
 
-# JWT config
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET", "super-secret-key")
 jwt = JWTManager(app)
 
-# AWS & DB config from environment
 S3_BUCKET = os.environ["SNAPS_BUCKET"]
 DB_ENDPOINT = os.environ["DB_ENDPOINT"]
 DB_USER    = os.environ["DB_USERNAME"]
@@ -39,13 +31,8 @@ DB_PASS    = os.environ["DB_PASSWORD"]
 DB_NAME    = os.environ.get("DB_NAME", "postgres")
 REGION     = os.environ.get("AWS_REGION", "us-east-1")
 
-# Clients / DB engine
 s3 = boto3.client("s3", region_name=REGION)
 engine = create_engine(f"postgresql://{DB_USER}:{DB_PASS}@{DB_ENDPOINT}:5432/{DB_NAME}")
-
-# —————————————————————————————————————————————
-# Authentication Endpoints
-# —————————————————————————————————————————————
 
 @app.route("/signup", methods=["OPTIONS", "POST"])
 def signup():
@@ -93,10 +80,6 @@ def login():
 
     access_token = create_access_token(identity=str(row["id"]))
     return {"access_token": access_token}, 200
-
-# —————————————————————————————————————————————
-# Friend Request Endpoints
-# —————————————————————————————————————————————
 
 @app.route("/friends/pending", methods=["GET"])
 @jwt_required()
@@ -164,7 +147,7 @@ def respond_request():
     me = get_jwt_identity()
     data = request.get_json() or {}
     req_id = data.get("req_id")
-    action = data.get("action")  # "accepted" or "rejected"
+    action = data.get("action")
     if action not in ("accepted", "rejected"):
         return {"msg": "invalid action"}, 400
 
@@ -175,10 +158,6 @@ def respond_request():
         ), {"s": action, "i": req_id, "me": me})
 
     return {"msg": "done"}, 200
-
-# —————————————————————————————————————————————
-# Snap Upload & View Endpoints
-# —————————————————————————————————————————————
 
 @app.route("/upload", methods=["OPTIONS", "POST"])
 @jwt_required()
@@ -202,7 +181,7 @@ def upload():
     Params={
         "Bucket": S3_BUCKET,
         "Key": key,
-        "ContentType": data["file_type"]  # e.g. "image/png"
+        "ContentType": data["file_type"]
     },
     ExpiresIn=300
    )
@@ -273,17 +252,9 @@ def list_snaps():
     
     return jsonify([{"id": str(r[0]), "owner": r[1]} for r in rows])
 
-# —————————————————————————————————————————————
-# Health Check
-# —————————————————————————————————————————————
-
 @app.route("/", methods=["GET"])
 def health():
     return "OK", 200
 
-# —————————————————————————————————————————————
-
 if __name__ == "__main__":
-    # in dev
     app.run(host="0.0.0.0", port=5000)
-    # in prod, you’ll use: gunicorn app:app --bind 0.0.0.0:5000

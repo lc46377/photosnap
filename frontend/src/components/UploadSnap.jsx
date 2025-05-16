@@ -7,7 +7,6 @@ export default function UploadSnap() {
     const [friends, setFriends] = useState([]);
     const [recipients, setRecipients] = useState([]);
 
-    // Fetch friend list on mount
     useEffect(() => {
         axios
             .get(`${API_BASE}/friends/list`)
@@ -16,14 +15,12 @@ export default function UploadSnap() {
     }, []);
 
     const handleUpload = async () => {
-        // get your presigned URLs
         const { data } = await axios.post(`${API_BASE}/upload`, {
             filename: file.name,
             file_type: file.type,
             recipients,
         });
 
-        // now use fetch (no JWT interceptor) to PUT the file
         await fetch(data.put_url, {
             method: 'PUT',
             body: file,

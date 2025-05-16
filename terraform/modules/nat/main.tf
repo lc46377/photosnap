@@ -1,7 +1,7 @@
 # 1) Allocate an EIP for the NAT Gateway
 resource "aws_eip" "nat_eip" {
   count  = var.enable_nat ? 1 : 0
-  domain = "vpc"   # new syntax, replaces deprecated `vpc = true`
+  domain = "vpc"
 }
 
 # 2) Create the NAT Gateway

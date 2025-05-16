@@ -1,4 +1,3 @@
-// src/components/ViewSnap.jsx
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -9,7 +8,6 @@ export default function ViewSnap() {
     const [imageUrl, setImageUrl] = useState('');
     const [error, setError] = useState('');
 
-    // fetch your incoming snaps on mount
     useEffect(() => {
         axios.get(`${API_BASE}/snaps/list`)
             .then(({ data }) => {

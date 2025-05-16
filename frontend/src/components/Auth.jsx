@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 export default function Auth({ onAuth }) {
-    const [mode, setMode] = useState('login'); // or 'signup'
+    const [mode, setMode] = useState('login');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const API_BASE = process.env.REACT_APP_API_URL;
@@ -13,7 +13,6 @@ export default function Auth({ onAuth }) {
         try {
             const resp = await axios.post(`${API_BASE}${path}`, { username, password });
             if (mode === 'login') {
-                // store token & notify parent
                 localStorage.setItem('photosnap_jwt', resp.data.access_token);
                 axios.defaults.headers.common.Authorization = `Bearer ${resp.data.access_token}`;
                 onAuth();
