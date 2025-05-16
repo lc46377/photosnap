@@ -22,28 +22,7 @@ A minimal one-time-view photo-sharing application built on AWS, demonstrating co
 
 ## Architecture
 
-```mermaid
-graph TD
-  ReactApp[React + CloudFront]
-  ReactApp -->|HTTPS| API_GW[API Gateway]
-
-  subgraph VPC
-    subgraph Public
-      IGW[(Internet Gateway)]
-      ALB[Application Load Balancer]
-    end
-    subgraph Private
-      EC2[EC2 (Flask API)]
-      RDS[(RDS PostgreSQL)]
-    end
-  end
-
-  API_GW --> ALB --> EC2
-  IGW --> ALB
-  EC2 --> RDS
-  EC2 -->|PUT/GET| S3[[S3 Bucket]]
-  S3 -->|ObjectCreated| Lambda[Lambda → CloudWatch]
-```
+<img width="853" alt="Arch.png" src="https://github.com/user-attachments/assets/ed3ceefe-f7df-483e-b259-6c1ea8e65859">
 
 ---
 
@@ -248,6 +227,24 @@ export TEST_FILE=./test.jpg
    ```bash
    python3 scripts/list_upload_logs.py
    ```
+
+---
+
+## Day 6: Frontend
+
+```bash
+cd frontend/
+```
+
+Change the REACT_APP_API_URL in .env file
+REACT_APP_API_URL=http://<ALB_URL>
+
+```bash
+npm i
+npm run start
+```
+
+The frontend will run in local host and you can test the backend.
 
 ---
 
